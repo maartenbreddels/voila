@@ -1,4 +1,5 @@
 # test basics of voila running a notebook
+import asyncio
 import re
 import json
 
@@ -80,6 +81,6 @@ async def test_no_execute_allowed(voila_app, fetch, http_port, ws_fetch):
     with mock.patch.object(voila_app.serverapp.log, 'warning') as mock_warning:
         await ws.write_message(json.dumps(msg))
         # make sure the warning method is called
-        # while not mock_warning.called:
-        #     await asyncio.sleep(0.1)
+        while not mock_warning.called:
+            await asyncio.sleep(0.1)
     mock_warning.assert_called_with('Received message of type "execute_request", which is not allowed. Ignoring.')

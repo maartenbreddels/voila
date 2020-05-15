@@ -242,6 +242,23 @@ class Voila(ExtensionApp):
         # Pass notebook path to settings.
         self.settings.update({"notebook_path": self.serverapp.file_to_run})
 
+        # If we are in standalone mode, we want to restrict the allowed messages
+        # to not allow arbitrary code execution.
+        extensions = set(self.serverapp.jpserver_extensions)
+        # voila.server_extension is the old name, but better be on the safe side, and
+        # expect messy environments
+        other_extensions = extensions.difference({'voila', 'voila.server_extension'})
+        if not other_extensions:
+            self.serverapp.log.info("Running in standalone mode, disabling execute_request")
+            self.serverapp.kernel_manager.allowed_message_types = [
+                'comm_open',
+                'comm_close',
+                'comm_msg',
+                'comm_info_request',
+                'kernel_info_request',
+                'shutdown_request',
+            ]
+
     def initialize_templates(self):
         if self.template:
             # common configuration options between the server extension and the application
