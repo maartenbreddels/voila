@@ -36,7 +36,7 @@
     }
     </script>
     {# from this point on, nb.cells contains output of the executed cells #}
-    {% do notebook_execute(nb, kernel_id) %}
+    {% do notebook_execute(nb) %}
 {%- endblock notebook_execute -%}
 
 {% endblock ipywidgets %}
