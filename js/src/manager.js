@@ -31,6 +31,7 @@ import { MessageLoop } from '@phosphor/messaging';
 
 import { requireLoader } from './loader';
 import { batchRateMap } from './utils';
+import { uuid } from '@jupyter-widgets/base';
 
 if (typeof window !== "undefined" && typeof window.define !== "undefined") {
     window.define("@jupyter-widgets/base", base);
@@ -148,48 +149,18 @@ export class WidgetManager extends JupyterLabManager {
     }
 
     async _build_models() {
-        const comm_ids = await this._get_comm_info();
         const models = {};
-        /**
-         * For the classical notebook, iopub_msg_rate_limit=1000 (default)
-         * And for zmq, we are affected by the default ZMQ_SNDHWM setting of 1000
-         * See https://github.com/voila-dashboards/voila/issues/534 for a discussion
-         */
-        const maxMessagesInTransit = 100; // really save limit compared to ZMQ_SNDHWM
-        const maxMessagesPerSecond = 500; // lets be on the save side, in case the kernel sends more msg'es
-        const widgets_info = await Promise.all(batchRateMap(Object.keys(comm_ids), async (comm_id) => {
-            const comm = await this._create_comm(this.comm_target_name, comm_id);
-            return this._update_comm(comm);
-        }, {room: maxMessagesInTransit, rate: maxMessagesPerSecond}));
-
-        await Promise.all(widgets_info.map(async (widget_info) => {
-            const state = widget_info.msg.content.data.state;
-            const modelPromise = this.new_model({
-                    model_name: state._model_name,
-                    model_module: state._model_module,
-                    model_module_version: state._model_module_version,
-                    comm: widget_info.comm,
-                },
-                state
-            );
-            const model = await modelPromise;
-            models[model.model_id] = model;
-            return modelPromise;
-        }));
-        return models;
-    }
-
-    async _update_comm(comm) {
-        return new Promise(function(resolve, reject) {
-            comm.on_msg(async (msg) => {
-                if(msg.content.data.buffer_paths) {
-                    base.put_buffers(msg.content.data.state, msg.content.data.buffer_paths, msg.buffers);
-                }
-                if (msg.content.data.method === 'update') {
-                    resolve({comm: comm, msg: msg});
-                }
+        const t0 = Date.now();
+        this.comm_target_name_control = 'jupyter.widget.control';
+        const comm_id = uuid();
+        const comm = await this._create_comm(this.comm_target_name_control, comm_id, {'widgets': null});
+        await new Promise((resolve) => {
+            comm.on_msg((msg) => {
+                resolve(msg)
             });
-            comm.send({method: 'request_state'}, {});
-        });
+        })
+        const t1 = Date.now();
+        console.log('Getting jupyter-widget models took ', t1 - t0, ' seconds')
+        return models;
     }
 }
